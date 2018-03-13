@@ -91,6 +91,8 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double steer_value = j[1]["steering_angle"];
+          double throttle_value = j[1]["throttle"];
 
           // Convert waypoints to be from vehicle's coordinate system
           vector<double> waypoints_x;
@@ -110,18 +112,33 @@ int main() {
           Eigen::VectorXd coeffs = polyfit(waypoints_x_eigen, waypoints_y_eigen, 3);
 
           // Define initial state from current measure
-          double cte = polyeval(coeffs, 0) - 0; // px = 0, py = 0 in vehicle's coordintate
-          double epsi = 0 - atan(coeffs[1]); // psi = 0 in vehicle's coordintate
+          // px = 0, py = 0, psi = 0 in vehicle's coordintate
+          px = 0;
+          py = 0;
+          psi = 0;
+          double cte = polyeval(coeffs, 0) - 0;
+          double epsi = 0 - atan(coeffs[1]);
+
+          // Adding delay to current state
+          const double delay = 0.1; // 100ms
+          const double Lf = 2.67;
+          double px_delay = px + v * cos(psi) * delay; // equivalent to v * delay
+          double py_delay = py + v * sin(psi) * delay; // equivalent to 0
+          double psi_delay = psi - v / Lf * steer_value * delay;
+          double v_delay = v + throttle_value * delay;
+          double cte_delay = cte + v * sin(psi) * delay;
+          double epsi_delay = epsi - v / Lf * steer_value * delay;
+
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          state << px_delay, py_delay, psi_delay, v_delay, cte_delay, epsi_delay;
 
           // Find best actuators values using MPC
           auto vars = mpc.Solve(state, coeffs);
 
           // Calculate steering angle and throttle using MPC results
           // Both are in between [-1, 1].
-          double steer_value = vars[0] / deg2rad(25.0);
-          double throttle_value = vars[1];
+          steer_value = vars[0] / deg2rad(25.0);
+          throttle_value = vars[1];
 
           json msgJson;
           msgJson["steering_angle"] = -steer_value;
@@ -132,10 +149,10 @@ int main() {
           vector<double> mpc_y_vals;
           for (int i = 2; i < vars.size(); i++) {
             if (i%2 == 0) {
-              mpc_x_vals.push_back(vars[0]);
+              mpc_x_vals.push_back(vars[i]);
             }
             else {
-              mpc_y_vals.push_back(vars[0]);
+              mpc_y_vals.push_back(vars[i]);
             }
           }
 
@@ -149,12 +166,12 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
-          int n_pts = 25; // display the next 25 points of the reference line
+          int n_pts = 25; // number of points for the reference line
           double gap = 2.5; // distance between each point
-          
-          for (int i = 0; i < n_pts; i++) {
+
+          for (int i = 1; i < n_pts + 1; i++) {
             next_x_vals.push_back(i * gap);
-            next_y_vals.push_back(polyeval(coeffs, i));
+            next_y_vals.push_back(polyeval(coeffs, i * gap));
           }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
