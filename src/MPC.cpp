@@ -6,8 +6,8 @@
 using CppAD::AD;
 
 // Set the timestep length and duration
-size_t N = 10;
-double dt = 0.1;
+size_t N = 9;
+double dt = 0.14;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -34,16 +34,17 @@ double delta_start = epsi_start + N;
 double a_start = delta_start + N - 1;
 
 // Weights for computing the cost
-double w_cte = 1500.0;
-double w_epsi = 1500.0;
-double w_v = 1.0;
+double w_cte = 400.0;
+double w_epsi = 0.03;
+double w_v = 0.1;
 double w_delta = 10.0;
-double w_a = 10.0;
-double w_ddelta = 150.0;
-double w_da = 15.0;
+double w_a = 0.1;
+double w_delta_v = 90.0;
+double w_ddelta = 10.0;
+double w_da = 0.01;
 
 // Speed reference value
-double ref_v = 70;
+double ref_v = 90;
 
 class FG_eval {
  public:
@@ -62,8 +63,11 @@ class FG_eval {
 
     // The part of the cost based on the reference state.
     for (int t = 0; t < N; t++) {
+      // Penalize for cross-track error
       fg[0] += w_cte * CppAD::pow(vars[cte_start + t], 2);
+      // Penalize for psi error
       fg[0] += w_epsi * CppAD::pow(vars[epsi_start + t], 2);
+      // Penalize for target speed difference (avoid stopping or driving too fast)
       fg[0] += w_v * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
@@ -71,6 +75,7 @@ class FG_eval {
     for (int t = 0; t < N - 1; t++) {
       fg[0] += w_delta * CppAD::pow(vars[delta_start + t], 2);
       fg[0] += w_a * CppAD::pow(vars[a_start + t], 2);
+      fg[0] += w_delta_v * CppAD::pow(vars[delta_start + t] * vars[v_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations.
