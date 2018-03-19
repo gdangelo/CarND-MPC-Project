@@ -25,7 +25,52 @@ The goal of this project is to implement in C++ a Model Predictive Controller (M
 
 ## Discussion / Reflection
 
+**The Model**
 
+My MPC model follows the one from the Udacity lessons. The state updates are defined by the following equations:
+
+![MPC Model](https://user-images.githubusercontent.com/4352286/37605262-316d5b8c-2b69-11e8-9436-c3f5ec897876.png)
+
+The actuators values are also constrained by the simulator limits for the steering angle (delta) and the throttle (a).
+
+The cost function that the MPC solver need to minimize is composed of three main parts (see lines 60-85 of `MPC.cpp`):
+
+- Cost related to the reference state: I penalize for cross-track error, psi error, and reference speed gap (reference speed is set to 90mph).
+- Cost related to the use of actuators: I penalize for using too much steer and throttle, but also when accelerating too much on sharp turns.
+- Cost related to sequential acutations: I penalize for hard change in steering angle and throttle values. It helps smooth the driving experience.
+
+Each cost is multiplied by a different weight before summing them up all together. These costs have been tuned manually to give more importance to certain costs than others (see lines 36-44 of `MPC.cpp`). 
+
+For a detailed implementation of my MPC model and calculations, please see the `Solve()` function and the `FG_eval` class of the `MPC.cpp` file.
+
+**Timestep Length and Elapsed Duration (N & dt)**
+
+Timestep length (N) and elapsed duration (dt) used by the MPC solver have been tuned manually. After several tests, the final values have been defined to **N = 9**, and **dt = 0.14**. I was originally using N = 10 and dt = 0.1 because I've thought that 1s would be a good prediction window. However, the results were not satisfying. So, I tried to find a larger prediction window size without increasing dt too much. It turns out that the final values chosen were good enough to have the car performs its task at a high speed and without shaking too much.
+
+**Polynomial Fitting and Initial State**
+
+First, I transformed the waypoints from the system's global coordinates to the car's coordinates. See `main.cpp` from line 97 to line 105. The following equations were used to perform the transformation:
+
+- `waypoints_x = dx * cos(-psi) - dy * sin(-psi)`
+- `waypoints_y = dx * sin(-psi) + dy * cos(-psi)`
+
+where:
+
+- `dx = ptsx[i] - px`, is the difference between the waypoint x-position `ptsx` and the current car x-position `px` in global coordinates
+- `dy = ptsy[i] - py`, is the difference between the waypoint y-position `ptsy` and the current car y-position `py` in global coordinates
+- `psi`, is the current orientation angle of the car
+
+Then, using the `polyfit()` function (see lines 107-122 of `main.cpp`), a third order polynomial line is fitted from the transformed waypoints. This line represents the path that the car should follow when driving.
+
+Finally, from the above steps, the initial/current state of the car could be defined in order to feed the MPC solver and find the best actuators values. Before taking latency into account, the initial state (see lines 114-120 of `main.cpp`) was defined as folllow:  `px = 0, py = 0, and psi = 0`. Indeed, because we are operating from the car's coordinates, we can set px and py equal to zero since the car is the origin of the coordinate system. Furthermore, psi can also be set to zero because the x-axis always points in the direction of the car's heading.
+
+Regarding the cross-track-error, as the car's position (px) is zero, it is calculated by evaluating the polynomial function at zero (see lines 119 of `main.cpp`). The psi error, or epsi, is calculated from the derivative of the polynomial fit line at px which is zero. So, the calculation is simplified to the negative arc tangent of the second coefficient of the polynomial (see lines 120 of `main.cpp`).
+
+**Model Predictive Control with Latency**
+
+The system suffers from a 100ms latency to perform the action when best actuators values have been calculated by MPC. Hence, in order to compensate this delay, I predicted and set the initial state of the car 100ms later before performing the MPC calculations. This is done using the same update equations used in my MPC model (see lines 122-130 of `main.cpp`). Note that these equations are simplified due to the coordinate system transformation.
+
+So, this initial predicted state and the third-order polynomial line are then fed to the MPC solver to find the best actuators values.
 
 ## Dependencies
 
@@ -54,8 +99,6 @@ The goal of this project is to implement in C++ a Model Predictive Controller (M
 * Simulator. You can download these from the [releases tab](https://github.com/udacity/self-driving-car-sim/releases).
 * Not a dependency but read the [DATA.md](./DATA.md) for a description of the data sent back from the simulator.
 
-
-
 ## Basic Build Instructions
 Starting to work on this project consists of the following steps:
 
@@ -69,7 +112,6 @@ Starting to work on this project consists of the following steps:
 4. Run `./mpc`
 5. Launch the Udacity Term 2 simulator
 6. Enjoy!
-
 
 ## Questions or Feedback
 
