@@ -4,7 +4,7 @@
 
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-![MPC Controller]()
+![MPC Controller](https://user-images.githubusercontent.com/4352286/37614999-92f583c0-2b82-11e8-8573-72aed61c0b94.png)
 
 ## Project Basics
 
@@ -21,7 +21,7 @@ The goal of this project is to implement in C++ a Model Predictive Controller (M
 
 **Results**
 
-
+See video of the results from my implementation [here](https://github.com/gdangelo/CarND-MPC-Project/blob/master/MPC.mov).
 
 ## Discussion / Reflection
 
